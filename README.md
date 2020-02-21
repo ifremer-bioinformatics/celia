@@ -21,7 +21,7 @@ More detailed will soon be available
 
 ## Wworkflow process
 
-<img width="636" height="700" src="./CELIA_workflow.jpg">
+<img width="700" height="636" src="./CELIA_workflow.jpg">
 
 
 ## License and Credits
