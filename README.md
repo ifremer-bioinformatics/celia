@@ -1,7 +1,7 @@
 [![Licence](https://img.shields.io/badge/licence-Affero_GPL_3.0-orange.svg)]()
 [![Version](https://img.shields.io/badge/version-beta-red.svg)]()
 [![Nextflow](https://img.shields.io/badge/nextflow-%E2%89%A519.07.0-blue.svg)](https://www.nextflow.io/)
-[![Install](https://img.shields.io/badge/install-SeBiMER_gitlab-brightgreen.svg)](https://gitlab.ifremer.fr/bioinfo/MAEVA)
+[![Install](https://img.shields.io/badge/install-SeBiMER_gitlab-brightgreen.svg)](https://gitlab.ifremer.fr/bioinfo/CELIA)
 
 # CELIA
 
