@@ -11,7 +11,7 @@ automatiC gEnome assembLy marIne prokAryotes
 
 CELIA is a bioinformatics workflow used to automate the genome assembly for marine prokaryotes
 
-## Wworkflow process
+## Workflow process
 
 <img width="700" height="636" src="./CELIA_workflow.jpg">
 
