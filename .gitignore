@@ -3,3 +3,5 @@
 CELIA_results_on_*
 tmp_CELIA/
 training_dataset/
+lib/*.fasta
+lib/*.m6
