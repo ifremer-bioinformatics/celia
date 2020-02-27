@@ -58,27 +58,30 @@ process multiqc {
 process unicycler {
   beforeScript "${params.unicycler_env}"
 
-  publishDir "${params.outdir}/${params.assembly_dirname}", mode: 'copy', pattern : 'assembly/*.gfa' , saveAs : { unicycler_gfa -> "${assembly_name}/assembly.gfa" }
-  publishDir "${params.outdir}/${params.assembly_dirname}", mode: 'copy', pattern : 'assembly/*.fasta' , saveAs : { unicycler_fasta -> "${assembly_name}/assembly.fasta" }
-  publishDir "${params.outdir}/${params.assembly_dirname}", mode: 'copy', pattern : 'assembly/*.log' , saveAs : { unicycler_log -> "${assembly_name}/unicycler.log" }
-  // publishDir "${params.outdir}/${params.assembly_dirname}", mode: 'copy', pattern : "${assembly_name}/*.log" , saveAs : { unicycler_log -> "${assembly_name}/unicycler.log" }
-
+  publishDir "${params.outdir}/${params.assembly_dirname}", mode: 'copy', pattern : "${assembly_name}/*.log" , saveAs : { unicycler_log -> "${assembly_name}/unicycler.log" }
+  publishDir "${params.outdir}/${params.assembly_dirname}", mode: 'copy', pattern : "${assembly_name}/*.gfa" , saveAs : { unicycler_gfa -> "${assembly_name}/assembly.gfa" }
+  publishDir "${params.outdir}/${params.assembly_dirname}", mode: 'copy', pattern : "${assembly_name}/*.fasta" , saveAs : { unicycler_fasta -> "${assembly_name}/assembly.fasta" }
 
   input :
     set assembly_name, file(read1) , file(read2) from unicycler_reads
 
   output :
-    set assembly_name, file("assembly/assembly.fasta") into unicycler_fasta
-    file "assembly/assembly.gfa" into unicycler_gfa
-    file "assembly/unicycler.log" into unicycler_log
-    // file "${assembly_name}/unicycler.log" into unicycler_log
+    set assembly_name, file("${assembly_name}/*.fasta") into unicycler_fasta
+    file "${assembly_name}/*.gfa" into unicycler_gfa
+    file "${assembly_name}/*.log" into unicycler_log
 
   shell :
   """
-  unicycler -1 ${read1} -2 ${read2} -o assembly/ --min_fasta_length ${params.unicycler.min_fasta_length} -t ${task.cpus} --keep 0 --mode normal >& assembly_process_!{assembly_name}.log 2>&1
-  #unicycler -1 ${read1} -2 ${read2} -o ${assembly_name} --min_fasta_length ${params.unicycler.min_fasta_length} -t ${task.cpus} --keep 0 --mode normal >& assembly_process_!{assembly_name}.log 2>&1
+  unicycler -1 ${read1} -2 ${read2} -o ${assembly_name} --min_fasta_length ${params.unicycler.min_fasta_length} -t ${task.cpus} --keep 0 --mode normal >& assembly_process_!{assembly_name}.log 2>&1
   """
 }
+
+unicycler_fasta.into {
+  fasta_busco
+  fasta_bowtie2
+  fasta_ani
+}
+
 
 /* Detection and removal of potential vectors, adpatators or contamination */
 
@@ -95,7 +98,7 @@ process unicycler {
 //
 //   shell :
 //   """
-//   blastn -reward 1 -penalty -5 -gapopen 3 -gapextend 3 -dust yes -soft_masking true -evalue 700 -searchsp 1750000000000 -db ${params.blast.univec_db} -query ${fasta} -out ${assembly_name}.m6 -outfmt 6 >& blast_univec_process_!{genome_name}.log 2>&1
+  // blastn -reward 1 -penalty -5 -gapopen 3 -gapextend 3 -dust yes -soft_masking true -evalue 700 -searchsp 1750000000000 -db ${params.blast.univec_db} -query ${fasta} -out ${assembly_name}.m6 -outfmt ${params.blast.outfmt} >& blast_univec_process_!{genome_name}.log 2>&1
 //   """
 // }
 
@@ -116,86 +119,88 @@ process unicycler {
 
 /* Quality and metrics of assembly */
 
-// process bowtie2 {
-//   beforeScript "${params.bowtie2_env}"
-//
-//   publishDir "${params.outdir}/${params.assembly_mapping_dirname}", mode: 'copy', pattern : '*.bam'
-//   publishDir "${params.outdir}/${params.assembly_mapping_dirname}", mode: 'copy', pattern : '*.bai'
-//
-//   input :
-//     set assembly_name, file(fasta) from unicycler_fasta
-//     set reads_id, file(read1) , file(read2) from bowtie2_reads
-//     // attention au merge des ids
-//   output :
-//     file "*.bam" into bowtie2_bam
-//     file "*.bai" into bowtie2_index
-//
-//   shell :
-//   """
-//   bowtie2-build ${fasta} ${assembly_name} -p 4 > bowtie2-build.log 2>&1
-//
-//   bowtie2 --phred33 --non-deterministic -t -p ${task.cpus} --fr \
-//   -1 ${read1} -2 ${read2} --sensitive -x ${assembly_name} | \
-//   samtools sort -@ 1 -m 4G -O bam -l 0 -T tmp - | \
-//   samtools view -b -o ${assembly_name}.bam - >& bowtie2-mapping.log 2>&1
-//
-//   samtools index ${assembly_name}.bam >& samtools-index.log 2>&1
-//   """
-// }
+process bowtie2 {
+  beforeScript "${params.bowtie2_env}"
 
-// process mosDepth {
-//   beforeScript "${params.mosdepth_env}"
-//
-//   publishDir "${params.outdir}/${params.assembly_coverage_dirname}", mode: 'copy', pattern : '*.mosdepth.global.dist.txt'
-//   publishDir "${params.outdir}/${params.assembly_coverage_dirname}", mode: 'copy', pattern : '*.mosdepth.summary.txt'
-//   publishDir "${params.outdir}/${params.assembly_coverage_dirname}", mode: 'copy', pattern : '*.per-base.bed.gz'
-//
-//   input :
-//     set assembly_id, file(bam) from bowtie2_bam
-//
-//   output :
-//     file "*.mosdepth.global.dist.txt" into mosdepth_global
-//     file "*.mosdepth.summary.txt" into mosdepth_summary
-//     file "*.per-base.bed.gz" into mosdepth_bed
-//
-//   shell :
-//   """
-//   mosdepth ${assembly_id} ${bam} >& mosdepth.log 2>&1
-//   """
-// }
-//
-// process busco {
-//   beforeScript "${params.busco_env}"
-//
-//   publishDir "${params.outdir}/${params.assembly_completness_dirname}", mode: 'copy', pattern : '${assembly_id}/short_summary*'
-//   publishDir "${params.outdir}/${params.assembly_completness_dirname}", mode: 'copy', pattern : '${assembly_id}/run_*/full_table.csv'
-//   publishDir "${params.outdir}/${params.assembly_completness_dirname}", mode: 'copy', pattern : '${assembly_id}/run_*/missing_busco_list.tsv'
-//
-//   input :
-//     set assembly_id, file(fasta) from unicycler_fasta
-//
-//   output :
-//     file "${assembly_id}/short_summary*" into busco_short_summary
-//     file "${assembly_id}/run_*/full_table.csv" into busco_full_summary
-//     file "${assembly_id}/run_*/missing_busco_list.tsv" into busco_missing_list
-//
-//   shell :
-//   """
-//   busco -c ${task.cpus} --force --offline -m genome -i ${fasta} -o ${assembly_id} -l ${params.busco.db_path}/${params.busco.db_name} >& busco.log 2>&1
-//   """
-// }
-//
-// process fastANI {
-//   beforeScript "${params.fastani_env}"
-//
-//   input :
-//     set assembly_id, file(fasta) from unicycler_fasta
-//
-//   output :
-//     file "${assembly_id}.ani" into fastANI_summary
-//
-//   shell :
-//   """
-//   fastANI -q ${fasta} --rl ${refGenome} -o ${assembly_id}.ani >& fastANI.log 2>&1
-//   """
-// }
+  publishDir "${params.outdir}/${params.assembly_mapping_dirname}", mode: 'copy', pattern : '*.bam'
+  publishDir "${params.outdir}/${params.assembly_mapping_dirname}", mode: 'copy', pattern : '*.bai'
+  publishDir "${params.outdir}/${params.assembly_mapping_dirname}", mode: 'copy', pattern : '*.bowtie2-mapping.log'
+
+  input :
+    set assembly_name, file(fasta) from fasta_bowtie2
+    set reads_id, file(read1) , file(read2) from bowtie2_reads
+  output :
+    set assembly_name, file("*.bam"), file("*.bai") into bowtie2_bam
+    file "*.bowtie2-mapping.log" into bowtie2_logs
+
+  shell :
+  """
+  bowtie2-build ${fasta} ${assembly_name} -p 4 > ${assembly_name}.bowtie2-build.log 2>&1
+
+  bowtie2 --phred33 --non-deterministic -t -p ${task.cpus} --fr -1 ${read1} -2 ${read2} --sensitive -x ${assembly_name} 2> ${assembly_name}.bowtie2-mapping.log | \
+  samtools sort -@ 1 -m 4G -O bam -l 0 -T tmp - 2> ${assembly_name}.samtools-sort.log | \
+  samtools view -b -o ${assembly_name}.bam - 2> ${assembly_name}.samtools-view.log
+
+  samtools index ${assembly_name}.bam >& ${assembly_name}.samtools-index.log 2>&1
+  """
+}
+
+process mosDepth {
+  beforeScript "${params.mosdepth_env}"
+
+  publishDir "${params.outdir}/${params.assembly_coverage_dirname}", mode: 'copy', pattern : '*.mosdepth.global.dist.txt'
+  publishDir "${params.outdir}/${params.assembly_coverage_dirname}", mode: 'copy', pattern : '*.mosdepth.summary.txt'
+  publishDir "${params.outdir}/${params.assembly_coverage_dirname}", mode: 'copy', pattern : '*.per-base.bed.gz'
+
+  input :
+    set assembly_name, file(bam), file(bai) from bowtie2_bam
+
+  output :
+
+    file "*.mosdepth.global.dist.txt" into mosdepth_global
+    file "*.mosdepth.summary.txt" into mosdepth_summary
+    file "*.per-base.bed.gz" into mosdepth_bed
+
+  shell :
+  """
+  mosdepth ${assembly_name} ${bam} >& mosdepth.log 2>&1
+  """
+}
+
+process busco {
+  beforeScript "${params.busco_env}"
+
+  publishDir "${params.outdir}/${params.assembly_completness_dirname}", mode: 'copy', pattern : "${assembly_name}/short_summary*"
+  publishDir "${params.outdir}/${params.assembly_completness_dirname}", mode: 'copy', pattern : "${assembly_name}/run_*/full_table.tsv"
+  publishDir "${params.outdir}/${params.assembly_completness_dirname}", mode: 'copy', pattern : "${assembly_name}/run_*/missing_busco_list.tsv"
+
+  input :
+    set assembly_name, file(fasta) from fasta_busco
+
+  output :
+    file "${assembly_name}/short_summary*" into busco_short_summary
+    file "${assembly_name}/run_*/full_table.tsv" into busco_full_summary
+    file "${assembly_name}/run_*/missing_busco_list.tsv" into busco_missing_list
+
+  shell :
+  """
+  busco -c ${task.cpus} --force --offline -m genome -i ${fasta} -o ${assembly_name} -l ${params.busco.db_path}/${params.busco.db_name} >& busco.log 2>&1
+  """
+}
+
+process fastANI {
+  beforeScript "${params.fastani_env}"
+
+  publishDir "${params.outdir}/${params.wgs_similarity_ANI_dirname}", mode: 'copy', pattern : "*.ani"
+
+  input :
+    set assembly_name, file(fasta) from fasta_ani
+
+  output :
+    file "*.ani" into fastANI_summary
+
+  shell :
+  """
+  fastANI -q ${fasta} --rl ${params.fastani.db} -o ${assembly_name}.ani >& fastANI.log 2>&1
+  """
+}
