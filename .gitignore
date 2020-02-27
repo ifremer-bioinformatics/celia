@@ -1,0 +1,5 @@
+*log*
+.nextflow
+CELIA_results_on_*
+tmp_CELIA/
+training_dataset/
