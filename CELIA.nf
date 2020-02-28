@@ -76,46 +76,49 @@ process unicycler {
   """
 }
 
-unicycler_fasta.into {
+/* Detection and removal of potential vectors, adpatators or contamination */
+
+process blast {
+  beforeScript "${params.blast_env}"
+
+  publishDir "${params.outdir}/${params.contamination_check_dirname}" , mode: 'copy', pattern : '*.m6'
+
+  input :
+    set assembly_name, file(fasta) from unicycler_fasta
+
+  output :
+    set assembly_name, file("*.m6"), file(fasta) into univec_blast_fasta
+
+  shell :
+  """
+  blastn -reward 1 -penalty -5 -gapopen 3 -gapextend 3 -dust yes -soft_masking true -evalue 700 -searchsp 1750000000000 -db ${params.blast.univec_db} -query ${fasta} -out ${assembly_name}.m6 -outfmt ${params.blast.outfmt} >& blast_univec_process_!{assembly_name}.log 2>&1
+  """
+}
+
+process remoVecSec {
+  beforeScript "${params.biopython_env}"
+
+  publishDir "${params.outdir}/${params.contamination_rm_dirname}" , mode: 'copy', pattern : '*.clean.fasta'
+
+  input :
+    set assembly_name, file(blast), file(fasta) from univec_blast_fasta
+
+  output :
+    set assembly_name, file("*.clean.fasta") into vecscreen_fasta
+
+  shell
+  """
+  ${baseDir}/lib/vecscreen.py -i ${blast} -f ${fasta} -o ${assembly_name}.clean.fasta
+  """
+
+}
+
+/* Create channels from decontaminated fasta to metrics steps */
+vecscreen_fasta.into {
   fasta_busco
   fasta_bowtie2
   fasta_ani
 }
-
-
-/* Detection and removal of potential vectors, adpatators or contamination */
-
-// process blast {
-//   beforeScript "${params.blast_env}"
-//
-//   publishDir "${params.outdir}/${params.contamination_check_dirname}" , mode: 'copy', pattern : '*.m6'
-//
-//   input :
-//     set assembly_name, file(fasta) from unicycler_fasta
-//
-//   output :
-//     file "*.m6" into genome_univec
-//
-//   shell :
-//   """
-  // blastn -reward 1 -penalty -5 -gapopen 3 -gapextend 3 -dust yes -soft_masking true -evalue 700 -searchsp 1750000000000 -db ${params.blast.univec_db} -query ${fasta} -out ${assembly_name}.m6 -outfmt ${params.blast.outfmt} >& blast_univec_process_!{genome_name}.log 2>&1
-//   """
-// }
-
-// process remoVecSec {
-//   beforeScript "${params.blast_env}"
-//
-//   input :
-//     set val(assembly_id), file(fasta) from unicycler_fasta
-//
-//   output :
-//     // file "${genome_name}.m6" into genome_univec
-//   shell
-//   """
-//   remower.py [-h] --genomefile GENOMEFILE [--dbvec DBVEC] [--dbmito DBMITO] [--dbcont DBCONT] [--dist DIST]
-//   """
-//
-// }
 
 /* Quality and metrics of assembly */
 
