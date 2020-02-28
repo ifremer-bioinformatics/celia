@@ -29,6 +29,14 @@ def getArgs():
 
     return arg
 
+def main(args):
+
+    ### Step - 1 - Blastn parsing results and attribution of hits
+    VecHits, Excludes = parse_blastn(args.blastn)
+
+    ### Step - 2 - Clean the fasta file and create a new record
+    clean_fasta(VecHits, Excludes, args.fasta, args.output)
+
 def parse_blastn(blastn):
 
     '''
@@ -170,14 +178,6 @@ def group(lst, n):
         val = lst[i:i+n]
         if len(val) == n:
             yield tuple(val)
-
-def main(args):
-
-    ### Step - 1 - Blastn parsing results and attribution of hits
-    VecHits, Excludes = parse_blastn(args.blastn)
-
-    ### Step - 2 - Clean the fasta file and create a new record
-    clean_fasta(VecHits, Excludes, args.fasta, args.output)
 
 if __name__ == '__main__':
     args = getArgs()
