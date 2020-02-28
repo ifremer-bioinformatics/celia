@@ -76,7 +76,7 @@ process unicycler {
   """
 }
 
-/* Detection and removal of potential vectors, adpatators or contamination */
+/* Detection and removal of potential vectors, adpatators or contaminants */
 
 process blast {
   beforeScript "${params.blast_env}"
@@ -113,7 +113,7 @@ process remoVecSec {
 
 }
 
-/* Create channels from decontaminated fasta to metrics steps */
+/* Create channels from decontaminated fasta to genome metrics/quality steps */
 vecscreen_fasta.into {
   fasta_busco
   fasta_bowtie2
