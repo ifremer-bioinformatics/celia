@@ -43,7 +43,7 @@ git clone https://gitlab.ifremer.fr/bioinfo/celia.git
 - Generate HTML report
 
 ## License and Credits
-MAEVA is released under the GNU Affero General Public License, Version 3.0. AGPL
+CELIA is released under the GNU Affero General Public License, Version 3.0. AGPL
 
 It is developped by Alexandre Cormier, bioinformatics engineer at the bioinformatics service of IFREMER (SeBiMER).
 
