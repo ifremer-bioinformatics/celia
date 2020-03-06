@@ -55,26 +55,48 @@ process multiqc {
 
 /* Genome assembly using Unicycler */
 
-process unicycler {
-  beforeScript "${params.unicycler_env}"
+// process unicycler {
+//   beforeScript "${params.unicycler_env}"
+//
+//   publishDir "${params.outdir}/${params.assembly_dirname}", mode: 'copy', pattern : "${assembly_name}/*.log" , saveAs : { unicycler_log -> "${assembly_name}/unicycler.log" }
+//   publishDir "${params.outdir}/${params.assembly_dirname}", mode: 'copy', pattern : "${assembly_name}/*.gfa" , saveAs : { unicycler_gfa -> "${assembly_name}/assembly.gfa" }
+//   publishDir "${params.outdir}/${params.assembly_dirname}", mode: 'copy', pattern : "${assembly_name}/*.fasta" , saveAs : { unicycler_fasta -> "${assembly_name}/assembly.fasta" }
+//
+//   input :
+//     set assembly_name, file(read1) , file(read2) from unicycler_reads
+//
+//   output :
+//     set assembly_name, file("${assembly_name}/*.fasta") into unicycler_fasta
+//     file "${assembly_name}/*.gfa" into unicycler_gfa
+//     file "${assembly_name}/*.log" into unicycler_log
+//
+//   shell :
+//   """
+//   unicycler -1 ${read1} -2 ${read2} -o ${assembly_name} --min_fasta_length ${params.unicycler.min_fasta_length} -t ${task.cpus} --keep 0 --mode normal >& assembly_process_!{assembly_name}.log 2>&1
+//   """
+// }
 
-  publishDir "${params.outdir}/${params.assembly_dirname}", mode: 'copy', pattern : "${assembly_name}/*.log" , saveAs : { unicycler_log -> "${assembly_name}/unicycler.log" }
-  publishDir "${params.outdir}/${params.assembly_dirname}", mode: 'copy', pattern : "${assembly_name}/*.gfa" , saveAs : { unicycler_gfa -> "${assembly_name}/assembly.gfa" }
-  publishDir "${params.outdir}/${params.assembly_dirname}", mode: 'copy', pattern : "${assembly_name}/*.fasta" , saveAs : { unicycler_fasta -> "${assembly_name}/assembly.fasta" }
+process shovill {
+  beforeScript "${params.shovill_env}"
+
+  publishDir "${params.outdir}/${params.assembly_dirname}", mode: 'copy', pattern : "${assembly_name}/*.log" , saveAs : { shovill_log -> "${assembly_name}/shovill.log" }
+  publishDir "${params.outdir}/${params.assembly_dirname}", mode: 'copy', pattern : "${assembly_name}/*.gfa" , saveAs : { shovill_gfa -> "${assembly_name}/contigs.gfa" }
+  publishDir "${params.outdir}/${params.assembly_dirname}", mode: 'copy', pattern : "${assembly_name}/*.fasta" , saveAs : { shovill_fasta -> "${assembly_name}/contigs.fasta" }
 
   input :
     set assembly_name, file(read1) , file(read2) from unicycler_reads
 
   output :
-    set assembly_name, file("${assembly_name}/*.fasta") into unicycler_fasta
-    file "${assembly_name}/*.gfa" into unicycler_gfa
-    file "${assembly_name}/*.log" into unicycler_log
+    set assembly_name, file("${assembly_name}/*.fasta") into shovill_fasta
+    file "${assembly_name}/*.gfa" into shovill_gfa
+    file "${assembly_name}/*.log" into shovill_log
 
   shell :
   """
-  unicycler -1 ${read1} -2 ${read2} -o ${assembly_name} --min_fasta_length ${params.unicycler.min_fasta_length} -t ${task.cpus} --keep 0 --mode normal >& assembly_process_!{assembly_name}.log 2>&1
+  shovill --R1 ${read1} --R2 ${read2} --depth 0 --outdir ${assembly_name}/ --minlen ${params.shovill.min_fasta_length} --tmpdir ${TMPDIR} --keepfiles --cpus ${task.cpus} --ram ${task.memory.toGiga()} >& assembly_process_!{assembly_name}.log 2>&1
   """
 }
+
 
 /* Detection and removal of potential vectors, adpatators or contaminants */
 
@@ -84,7 +106,8 @@ process blast {
   publishDir "${params.outdir}/${params.contamination_check_dirname}" , mode: 'copy', pattern : '*.m6'
 
   input :
-    set assembly_name, file(fasta) from unicycler_fasta
+    // set assembly_name, file(fasta) from unicycler_fasta
+    set assembly_name, file(fasta) from shovill_fasta
 
   output :
     set assembly_name, file("*.m6"), file(fasta) into univec_blast_fasta
@@ -118,6 +141,7 @@ vecscreen_fasta.into {
   fasta_busco
   fasta_bowtie2
   fasta_ani
+  fasta_prokka
 }
 
 /* Quality and metrics of assembly */
@@ -207,3 +231,21 @@ process fastANI {
   fastANI -q ${fasta} --rl ${params.fastani.db} -o ${assembly_name}.ani >& fastANI.log 2>&1
   """
 }
+
+// process prokka {
+//   beforeScript "${params.prokka_env}"
+//
+//   // publishDir "${params.outdir}/${params.gene_prediction_dirname}", mode: 'copy', pattern : "prokka/${assembly_name}*"
+//   publishDir "${params.outdir}/${params.gene_prediction_dirname}", mode: 'copy', pattern : "prokka/${assembly_name}*" , saveAs : { prokka_annotation -> "${assembly_name}*" }
+//
+//   input :
+//     set assembly_name, file(fasta) from fasta_prokka
+//
+//   output :
+//     file "prokka/${assembly_name}*" into prokka_annotation
+//
+//   shell :
+//   """
+//   prokka --outdir prokka --prefix ${assembly_name} --centre Ifremer --compliant --addgenes --gffver 3 --kingdom ${params.prokka.kingdom} --gcode ${params.prokka.gcode} --mincontiglen ${params.prokka.min_contig_length} --cpus ${task.cpus} ${fasta} >& prokka.log 2>&1
+//   """
+// }
