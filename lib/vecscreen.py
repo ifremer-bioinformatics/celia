@@ -23,6 +23,7 @@ def getArgs():
     parser = argparse.ArgumentParser(description="")
     parser.add_argument('-i',dest="blastn",type=argparse.FileType('r'),required=True,help='Blast result against UniVecDB')
     parser.add_argument('-f',dest="fasta",type=str,required=True,help='Fasta to clean')
+    parser.add_argument('-m',dest="minSize",type=int,default=500,help='Minimal contig size')
     parser.add_argument('-o',dest="output",type=str,required=True,help='Output name')
 
     arg = parser.parse_args()
@@ -35,7 +36,7 @@ def main(args):
     VecHits, Excludes = parse_blastn(args.blastn)
 
     ### Step - 2 - Clean the fasta file and create a new record
-    clean_fasta(VecHits, Excludes, args.fasta, args.output)
+    clean_fasta(VecHits, Excludes, args.fasta, args.output, args.minSize)
 
 def parse_blastn(blastn):
 
@@ -47,6 +48,7 @@ def parse_blastn(blastn):
     Excludes = {}
     VecHits = {}
     found_vector_seq = 0
+    terminalDist = 200
 
     for row in blastn:
         qaccver,saccver,pid,length,mismatch,gapopen,qstart,qend,sstart,send,evalue,bitscore,score,qlen = row.split()
@@ -60,12 +62,12 @@ def parse_blastn(blastn):
         #check for location
         terminal = False
         position = None
-        #considere hit as terminal if it's starts in the last 25bp
+        #considere hit as terminal if it's starts in the last 50bp
         #otherwise, considere it as internal
-        if loc[0] <= 50:
+        if loc[0] <= terminalDist:
             terminal = True
             position = '5'
-        if (int(qlen) - loc[1]) <= 50:
+        if (int(qlen) - loc[1]) <= terminalDist:
             terminal = True
             position = '3'
 
@@ -104,7 +106,7 @@ def parse_blastn(blastn):
 
     return(VecHits, Excludes)
 
-def clean_fasta(VecHits, Excludes, fasta, output):
+def clean_fasta(VecHits, Excludes, fasta, output, minSize):
 
     trimTerminal = 0
     splitContig = 0
@@ -156,20 +158,21 @@ def clean_fasta(VecHits, Excludes, fasta, output):
             if len(paired_slicer) < 2:
                 print('Terminal trimming {:} to {:}'.format(record.id, paired_slicer))
                 newSeq = Seq[paired_slicer[0][0]:paired_slicer[0][1]]
-
-                f.write('>'+record.description+'\n')
-                while len(newSeq) > 0:
-                    f.write(newSeq[:70]+'\n')
-                    newSeq = newSeq[70:]
+                if len(newSeq) >= minSize:
+                    f.write('>'+record.description+'\n')
+                    while len(newSeq) > 0:
+                        f.write(newSeq[:70]+'\n')
+                        newSeq = newSeq[70:]
 
             else:
                 print('Spliting contig {:} into {:}'.format(record.id, paired_slicer))
                 for num,y in enumerate(paired_slicer):
                     newSeq = Seq[y[0]:y[1]]
-                    f.write('>'+record.id+'.'+str(num+1)+'\n')
-                    while len(newSeq) > 0:
-                        f.write(newSeq[:70]+'\n')
-                        newSeq = newSeq[70:]
+                    if len(newSeq) >= minSize:
+                        f.write('>'+record.id+'.'+str(num+1)+'\n')
+                        while len(newSeq) > 0:
+                            f.write(newSeq[:70]+'\n')
+                            newSeq = newSeq[70:]
 
     f.close()
 
