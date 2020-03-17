@@ -34,7 +34,7 @@ git clone https://gitlab.ifremer.fr/bioinfo/celia.git
 
 ## Workflow process
 
-<img width="700" height="636" src="./CELIA_workflow.jpg">
+<img width="608" height="727" src="./CELIA_workflow.png">
 
 ## Further development
 
