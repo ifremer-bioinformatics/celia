@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
-export PATH=/appli/anaconda/latest/bin/:$PATH
-source activate /appli/conda-env/bioinfo/multiqc-1.8
+. /appli/anaconda/3.7/etc/profile.d/conda.sh
+conda activate /appli/conda-env/bioinfo/multiqc-1.8
