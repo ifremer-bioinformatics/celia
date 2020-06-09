@@ -1,22 +1,111 @@
 #!/usr/bin/env nextflow
-println "Workflow for project : $params.projectName"
-println "Workflow description : $workflow.manifest.description"
-println "Workflow gitLab URL : $workflow.manifest.homePage"
-println "Workflow authors : $workflow.manifest.author"
-println "Workflow source code : $workflow.projectDir"
-println "Cmd line: $workflow.commandLine"
-println "Workflow working/temp directory : $workflow.workDir"
-println "Workflow output/publish directory : $params.outdir"
-println "Workflow configuration file : $workflow.configFiles"
-println "Directory containing raw data : $params.rawdata_dir"
+
+/*
+========================================================================================
+                          CELIA: automatiC gEnome assembLy marIne prokAryotes
+========================================================================================
+ CELIA Analysis Pipeline.
+ #### Homepage / Documentation
+ https://gitlab.ifremer.fr/bioinfo/CELIA
+----------------------------------------------------------------------------------------
+*/
+
+def helpMessage() {
+  // Add to this help message with new command line parameters
+  log.info SeBiMERHeader()
+  log.info"""
+  Usage:
+
+  The typical command for running the pipeline after filling the conf/base.config file is as follows :
+    nextflow run main.nf
+
+    Mandatory arguments:
+    --rawdata_dir [path]                    Path to input directory with raaw data files
+
+    Other options:
+    --outdir [path]                         The output directory where the results will be saved
+    -w/--work-dir                           The temporary directory where intermediate data will be saved
+    -name [str]                             Name for the pipeline run. If not specified, Nextflow will automatically generate a random mnemonic
+    --projectName [str]                     Name of the project being analyzed
+
+    Quality checking:
+    --quality_check_enable [bool]           Quality checking step | FastQC, MultiQC (default: true)
+    --quality_check_post_enable [bool]      Quality checking step of genome assembly | BUSCO, Bowtie2, MosDepth (default: true)
+    --odb_path [path]                       Path to all BUSCO ODB databases
+    --odb_name [str]                        Specify the name of the BUSCO lineage to be used
+
+    Genome assembly:
+    --min_ctg_length [int]                  Exclude contigs from the FASTA file which are shorter than this length (default: 500)
+    --assembly_mode [str]                   Unicycler graph mode: normal, conservative, bold (default: normal)
+
+    Vectors detection:
+    --univec_db [path]                      UniVec database location
+    --outfmt [int/str]                      Blast output format (default: 6)
+
+    ANI calculation:
+    --ani_enable [bool]                     Compute ANI scores (default: true)
+    --ani_db [str]                          A file containing list of reference genome files, one genome per line
+
+    Annotation:
+    --annotation_enable [bool]              Make structural and functional annotation (default: true)
+    --evalue                                Similarity e-value cut-off (default: 1e-09)
+    --center                                Sequencing centre ID. (default: Ifremer)
+    --kingdom                               Annotation mode: Archaea|Bacteria|Mitochondria|Viruses (default 'Bacteria')
+    --gcode                                 Genetic code / Translation table (set if --kingdom is set) (default '11')
+
+  """.stripIndent()
+}
+
+// Show help message
+if (params.help) {
+  helpMessage()
+  exit 0
+}
+
+/*
+* SET UP CONFIGURATION VARIABLES
+*/
+
+// Has the run name been specified by the user?
+//  this has the bonus effect of catching both -name and --name
+custom_runName = params.name
+if (!(workflow.runName ==~ /[a-z]+_[a-z]+/)) {
+  custom_runName = workflow.runName
+}
 
 Channel.fromFilePairs(params.rawdata_dir, checkIfExists:true, flat:true)
   .ifEmpty { exit 1, error "${params.rawdata_dir} is empty - no read files supplied" }
   .into { fastqc_reads ; unicycler_reads ; bowtie2_reads }
 
-/* Check quality of raw reads */
+  /*
+  * PIPELINE INFO
+  */
+  // Header log info
+log.info SeBiMERHeader()
+def summary = [:]
+if (workflow.revision) summary['Pipeline Release'] = workflow.revision
+summary['Run Name']         = custom_runName ?: workflow.runName
+summary['Project Name']     = params.projectName
+summary['Output dir']       = params.outdir
+summary['Launch dir']       = workflow.launchDir
+summary['Working dir']      = workflow.workDir
+summary['Script dir']       = workflow.projectDir
+summary['User']             = workflow.userName
+
+if (params.email || params.email_on_fail) {
+  summary['E-mail Address']    = params.email
+  summary['E-mail on failure'] = params.email_on_fail
+}
+
+log.info summary.collect { k,v -> "${k.padRight(18)}: $v" }.join("\n")
+log.info "-\033[2m--------------------------------------------------\033[0m-"
+
+/*
+* STEP 0 - Check quality of raw reads
+*/
 
 process fastqc {
+  label 'fastqc'
   beforeScript "${params.fastqc_env}"
 
   publishDir "${params.outdir}/${params.quality_check_dirname}" , mode: 'copy', pattern : '*_fastqc.{zip,html}'
@@ -28,6 +117,9 @@ process fastqc {
   output :
     file "*_fastqc.{zip,html}" into fastqc_results
     file 'fastqc_process_*.log' into fastqc_process_log
+
+  when :
+    params.quality_check_enable
 
   shell :
   """
@@ -47,15 +139,21 @@ process multiqc {
     file "multiqc_report.html" into multiqc_report
     file "multiqc_data"
 
-   shell :
-   """
-   multiqc . >& multiqc_process.log 2>&1
-   """
+  when :
+    params.quality_check_enable
+
+  shell :
+  """
+  multiqc . >& multiqc_process.log 2>&1
+  """
 }
 
-/* Genome assembly using Unicycler */
+/*
+* STEP 1 - Genome assembly using Unicycler
+*/
 
 process unicycler {
+  label 'assembly'
   beforeScript "${params.unicycler_env}"
 
   publishDir "${params.outdir}/${params.assembly_dirname}", mode: 'copy', pattern : "${assembly_name}/*.log" , saveAs : { unicycler_log -> "${assembly_name}/unicycler.log" }
@@ -72,7 +170,7 @@ process unicycler {
 
   shell :
   """
-  unicycler -1 ${read1} -2 ${read2} -o ${assembly_name} --min_fasta_length ${params.unicycler.min_fasta_length} -t ${task.cpus} --keep 0 --mode normal >& assembly_process_!{assembly_name}.log 2>&1
+  unicycler -1 ${read1} -2 ${read2} -o ${assembly_name} --min_fasta_length ${params.min_ctg_length} -t ${task.cpus} --keep 0 --mode ${params.assembly_mode} >& assembly_process_!{assembly_name}.log 2>&1
   """
 }
 
@@ -100,21 +198,23 @@ process unicycler {
 process bandage {
   beforeScript "${params.bandage_env}"
 
-  publishDir "${params.outdir}/${params.assembly_dirname}" , mode: 'copy', saveAs : { bandage_plot -> "${assembly_name}/${assembly_name}.png" } //, pattern : '*.m6'
+  publishDir "${params.outdir}/${params.assembly_dirname}" , mode: 'copy', saveAs : { bandage_plot -> "${assembly_name}/${assembly_name}.svg" }
 
   input :
     set assembly_name, file(gfa) from unicycler_gfa
 
   output :
-    file("*.png")
+    file("*.svg")
 
   shell :
   """
-  Bandage image ${gfa} ${assembly_name}.png
+  Bandage image ${gfa} ${assembly_name}.svg
   """
 }
 
-/* Detection and removal of potential vectors, adpatators or contaminants */
+/*
+* STEP 2 - Detection and removal of potential vectors, adpatators or contaminants
+*/
 
 process blast {
   beforeScript "${params.blast_env}"
@@ -123,14 +223,13 @@ process blast {
 
   input :
     set assembly_name, file(fasta) from unicycler_fasta
-    // set assembly_name, file(fasta) from shovill_fasta
 
   output :
     set assembly_name, file("*.m6"), file(fasta) into univec_blast_fasta
 
   shell :
   """
-  blastn -reward 1 -penalty -5 -gapopen 3 -gapextend 3 -dust yes -soft_masking true -evalue 700 -searchsp 1750000000000 -db ${params.blast.univec_db} -query ${fasta} -out ${assembly_name}.m6 -outfmt ${params.blast.outfmt} >& blast_univec_process_!{assembly_name}.log 2>&1
+  blastn -reward 1 -penalty -5 -gapopen 3 -gapextend 3 -dust yes -soft_masking true -evalue 700 -searchsp 1750000000000 -db ${params.univec_db} -query ${fasta} -out ${assembly_name}.m6 -outfmt ${params.outfmt} >& blast_univec_process_!{assembly_name}.log 2>&1
   """
 }
 
@@ -147,7 +246,7 @@ process remoVecSec {
 
   shell
   """
-  ${baseDir}/lib/vecscreen.py -i ${blast} -f ${fasta} -o ${assembly_name}.clean.fasta
+  vecscreen.py -i ${blast} -f ${fasta} -o ${assembly_name}.clean.fasta
   """
 
 }
@@ -160,9 +259,12 @@ vecscreen_fasta.into {
   fasta_prokka
 }
 
-/* Quality and metrics of assembly */
+/*
+* STEP 3 - Assembly quality and metrics
+*/
 
 process bowtie2_mapping {
+  label 'bowtie2'
   beforeScript "${params.bowtie2_env}"
 
   publishDir "${params.outdir}/${params.assembly_mapping_dirname}", mode: 'copy', pattern : '*.bam'
@@ -172,9 +274,13 @@ process bowtie2_mapping {
   input :
     set assembly_name, file(fasta) from fasta_bowtie2
     set reads_id, file(read1) , file(read2) from bowtie2_reads
+
   output :
     set assembly_name, file("*.bam"), file("*.bai") into bowtie2_bam
     file "*.bowtie2-mapping.log" into bowtie2_logs
+
+  when :
+    params.quality_check_post_enable
 
   shell :
   """
@@ -204,6 +310,9 @@ process mosDepth {
     file "*.mosdepth.summary.txt" into mosdepth_summary
     file "*.per-base.bed.gz" into mosdepth_bed
 
+  when :
+    params.quality_check_post_enable
+
   shell :
   """
   mosdepth ${assembly_name} ${bam} >& mosdepth.log 2>&1
@@ -211,6 +320,7 @@ process mosDepth {
 }
 
 process busco {
+  lable 'busco'
   beforeScript "${params.busco_env}"
 
   publishDir "${params.outdir}/${params.assembly_completness_dirname}", mode: 'copy', pattern : "${assembly_name}/short_summary*"
@@ -225,11 +335,18 @@ process busco {
     file "${assembly_name}/run_*/full_table.tsv" into busco_full_summary
     file "${assembly_name}/run_*/missing_busco_list.tsv" into busco_missing_list
 
+  when :
+    params.quality_check_post_enable
+
   shell :
   """
-  busco -c ${task.cpus} --force --offline -m genome -i ${fasta} -o ${assembly_name} -l ${params.busco.db_path}/${params.busco.db_name} >& busco.log 2>&1
+  busco -c ${task.cpus} --force --offline -m genome -i ${fasta} -o ${assembly_name} -l ${params.odb_path}/${params.odb_name} >& busco.log 2>&1
   """
 }
+
+/*
+* STEP 4 - ANI
+*/
 
 process fastANI {
   beforeScript "${params.fastani_env}"
@@ -242,13 +359,21 @@ process fastANI {
   output :
     file "*.ani" into fastANI_summary
 
+  when :
+    params.ani_enable
+
   shell :
   """
-  fastANI -q ${fasta} --rl ${params.fastani.db} -o ${assembly_name}.ani >& fastANI.log 2>&1
+  fastANI -q ${fasta} --rl ${params.ani_db} -o ${assembly_name}.ani >& fastANI.log 2>&1
   """
 }
 
+/*
+* STEP 5 - Structural and functional annotation
+*/
+
 process prokka {
+  label 'prokka'
   beforeScript "${params.prokka_env}"
 
   publishDir "${params.outdir}/${params.gene_prediction_dirname}", mode: 'copy'
@@ -259,8 +384,29 @@ process prokka {
   output :
     file "prokka/*" into prokka_annotation
 
+  when :
+    params.annotation_enable
+
   shell :
   """
-  prokka --outdir prokka --prefix ${assembly_name} --centre Ifremer --compliant --addgenes --gffver 3 --kingdom ${params.prokka.kingdom} --gcode ${params.prokka.gcode} --mincontiglen ${params.prokka.min_contig_length} --cpus ${task.cpus} ${fasta} >& prokka.log 2>&1
+  prokka --outdir prokka --prefix ${assembly_name} --centre ${params.center} --compliant --addgenes --gffver 3 --kingdom ${params.kingdom} --gcode ${params.gcode} --mincontiglen ${params.min_ctg_length} --cpus ${task.cpus} ${fasta} >& prokka.log 2>&1
   """
+}
+
+/* Other functions */
+def SeBiMERHeader() {
+    // Log colors ANSI codes
+    c_cyan = params.monochrome_logs ? '' : "\033[0;36m";
+    c_blue = params.monochrome_logs ? '' : "\033[0;34m";
+    c_reset = params.monochrome_logs ? '' : "\033[0m";
+    c_yellow = params.monochrome_logs ? '' : "\033[0;33m";
+
+    return """    -${c_cyan}--------------------------------------------------${c_reset}-
+    ${c_blue}    __  __  __  .       __  __  ${c_reset}
+    ${c_blue}   \\   |_  |__) | |\\/| |_  |__)  ${c_reset}
+    ${c_blue}  __\\  |__ |__) | |  | |__ |  \\  ${c_reset}
+                                            ${c_reset}
+    ${c_yellow}  CELIA: automatiC gEnome assembLy marIne prokAryotes${c_reset}
+    -${c_cyan}--------------------------------------------------${c_reset}-
+    """.stripIndent()
 }
