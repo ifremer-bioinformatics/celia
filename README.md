@@ -35,7 +35,7 @@ qsub celia.pbs
 
 ## Workflow process
 
-<img width="608" height="727" src="./CELIA_workflow.png">
+<img width="986" height="525" src="docs/images/celia-v1.0.0.png">
 
 ## Further development
 
