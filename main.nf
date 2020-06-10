@@ -46,6 +46,11 @@ def helpMessage() {
     --ani_enable [bool]                     Compute ANI scores (default: true)
     --ani_db [str]                          A file containing list of reference genome files, one genome per line
 
+    Plasmid detection:
+    --plasmid_enable [bool]                 Identification and characterization of bacterial plasmid contigs (default: true)
+    --platon_db [path]                      Platon plasmid database
+    --platon_mode [str]                     Applied filter mode. Sensitivity, specificity or accuracy (default: accuracy)
+
     Annotation:
     --annotation_enable [bool]              Make structural and functional annotation (default: true)
     --evalue                                Similarity e-value cut-off (default: 1e-09)
@@ -258,6 +263,13 @@ vecscreen_fasta.into {
   fasta_ani
   fasta_prokka
 }
+// vecscreen_fasta.into {
+//   fasta_busco
+//   fasta_bowtie2
+//   fasta_ani
+//   fasta_prokka
+//   fasta_platon
+// }
 
 /*
 * STEP 3 - Assembly quality and metrics
@@ -369,7 +381,35 @@ process fastANI {
 }
 
 /*
-* STEP 5 - Structural and functional annotation
+* STEP 5 - Plasmid detection
+*/
+
+process platon {
+  beforeScript "${params.platon_env}"
+
+  publishDir "${params.outdir}/${params.plasmid_detection_dirname}", mode: 'copy', pattern : "*.fasta"
+  publishDir "${params.outdir}/${params.plasmid_detection_dirname}", mode: 'copy', pattern : "*.tsv"
+  publishDir "${params.outdir}/${params.plasmid_detection_dirname}", mode: 'copy', pattern : "*.json"
+
+  input :
+    set assembly_name, file(fasta) from fasta_platon
+
+  output :
+    file "*.fasta" //into fastANI_summary
+    file "*.tsv" //into fastANI_summary
+    file "*.json" //into fastANI_summary
+
+  when :
+    params.plasmid_enable
+
+  shell :
+  """
+  platon --db ${params.platon_db} --mode ${params.platon_mode} --threads ${task.cpus} ${fasta} >& platon.log 2>&1
+  """
+}
+
+/*
+* STEP 6 - Structural and functional annotation
 */
 
 process prokka {
