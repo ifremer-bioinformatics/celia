@@ -30,7 +30,7 @@ git clone https://gitlab.ifremer.fr/bioinfo/celia.git
 4. Run the analysis
 
 ```
-qsub celi.pbs
+qsub celia.pbs
 ```
 
 ## Workflow process

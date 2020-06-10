@@ -10,7 +10,7 @@ date
 
 cd  ${PBS_O_WORKDIR}
 
-./RunCELIA.sh &> ${PBS_JOBNAME}.e${PBS_JOBID%.*} 2>&1
+./celia.sh &> ${PBS_JOBNAME}.e${PBS_JOBID%.*} 2>&1
 
 ###
 date
