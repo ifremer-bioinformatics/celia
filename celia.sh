@@ -3,7 +3,7 @@
 BASEDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 
 #activate nextflow environment
-. ${BASEDIR}/config/conda_envs/nextflow_env.sh
+. ${BASEDIR}/conf/conda_envs/nextflow_env.sh
 
 #nextflow temp directory
 if [ "$1" != "-resume" ]
@@ -17,4 +17,4 @@ fi
 nextflow -DXms=2G -DXmx=8G -trace nextflow.executor run main.nf $1
 
 #deactivate nextflow environment
-. ${BASEDIR}/config/conda_envs/delenv.sh
+. ${BASEDIR}/conf/conda_envs/delenv.sh
