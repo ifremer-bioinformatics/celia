@@ -10,9 +10,10 @@ CELIA (automatiC gEnome assembLy marIne prokAryotes) is a bioinformatics workflo
 For now, the workflow allows:
 - to make a quality control of the data using FastQC and MultiQC
 - to assemble the genome using Unicycler
-- to remove contaminants (vectors, adpatators or PhiX) using homemade script and NCBI UniVec database
-- to evaluate the assembly quality using BUSCO, mapping coverage (Bowtie2 + MoseDepth)
-- to compute ANI scores using dedicated database
+- to remove contaminants (vectors, adpatators or PhiX) using NCBI UniVec database and python script developped by the SeBiMER
+- to evaluate the assembly quality using BUSCO and the mapping coverage (Bowtie2 + MoseDepth)
+- to compute ANI scores using dedicated database (FastANI)
+- to make a structural annotation (Prokka)
 
 ## Quick start
 
@@ -22,14 +23,14 @@ For now, the workflow allows:
 git clone https://gitlab.ifremer.fr/bioinfo/celia.git
 ```
 
-2. Once on DATARMOR, edit the celia/config/params.config file with your analysis parameters
+2. Once on DATARMOR, edit the conf/params.config file with your analysis parameters or directly using arguments
 
 3. Add a directory with your data (paired fastq.gz files)
 
 4. Run the analysis
 
 ```
-./RunCELIA.sh
+qsub celi.pbs
 ```
 
 ## Workflow process
@@ -38,8 +39,8 @@ git clone https://gitlab.ifremer.fr/bioinfo/celia.git
 
 ## Further development
 
-- Identify and isolate assembled plasmids
-- Structural and functional annotation (Prokka)
+- Identify and isolate assembled plasmids (Platon)
+- Functional annotation (Prokka)
 - Generate HTML report
 
 ## License and Credits
