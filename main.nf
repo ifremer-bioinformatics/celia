@@ -262,14 +262,8 @@ vecscreen_fasta.into {
   fasta_bowtie2
   fasta_ani
   fasta_prokka
+  fasta_platon
 }
-// vecscreen_fasta.into {
-//   fasta_busco
-//   fasta_bowtie2
-//   fasta_ani
-//   fasta_prokka
-//   fasta_platon
-// }
 
 /*
 * STEP 3 - Assembly quality and metrics
