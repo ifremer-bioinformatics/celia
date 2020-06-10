@@ -92,10 +92,10 @@ summary['Working dir']      = workflow.workDir
 summary['Script dir']       = workflow.projectDir
 summary['User']             = workflow.userName
 
-if (params.email || params.email_on_fail) {
-  summary['E-mail Address']    = params.email
-  summary['E-mail on failure'] = params.email_on_fail
-}
+// if (params.email || params.email_on_fail) {
+//   summary['E-mail Address']    = params.email
+//   summary['E-mail on failure'] = params.email_on_fail
+// }
 
 log.info summary.collect { k,v -> "${k.padRight(18)}: $v" }.join("\n")
 log.info "-\033[2m--------------------------------------------------\033[0m-"
@@ -320,7 +320,7 @@ process mosDepth {
 }
 
 process busco {
-  lable 'busco'
+  label 'busco'
   beforeScript "${params.busco_env}"
 
   publishDir "${params.outdir}/${params.assembly_completness_dirname}", mode: 'copy', pattern : "${assembly_name}/short_summary*"
