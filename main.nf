@@ -269,7 +269,7 @@ vecscreen_fasta.into {
 * STEP 3 - Assembly quality and metrics
 */
 
-process bowtie2_mapping {
+process bowtie2 {
   label 'bowtie2'
   beforeScript "${params.bowtie2_env}"
 
