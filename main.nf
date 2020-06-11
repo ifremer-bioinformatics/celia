@@ -379,7 +379,7 @@ process fastANI {
 */
 
 process platon {
-  lable 'platon'
+  label 'platon'
   beforeScript "${params.platon_env}"
 
   publishDir "${params.outdir}/${params.plasmid_detection_dirname}", mode: 'copy', pattern : "*.fasta"
