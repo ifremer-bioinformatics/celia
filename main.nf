@@ -82,10 +82,10 @@ Channel.fromFilePairs(params.rawdata_dir, checkIfExists:true, flat:true)
   .ifEmpty { exit 1, error "${params.rawdata_dir} is empty - no read files supplied" }
   .into { fastqc_reads ; unicycler_reads ; bowtie2_reads }
 
-  /*
-  * PIPELINE INFO
-  */
-  // Header log info
+/*
+* PIPELINE INFO
+*/
+// Header log info
 log.info SeBiMERHeader()
 def summary = [:]
 if (workflow.revision) summary['Pipeline Release'] = workflow.revision
@@ -116,17 +116,17 @@ process fastqc {
   publishDir "${params.outdir}/${params.quality_check_dirname}" , mode: 'copy', pattern : '*_fastqc.{zip,html}'
   publishDir "${params.outdir}/${params.quality_check_dirname}" , mode: 'copy', pattern : 'fastqc_process_*.log'
 
-  input :
+  input:
     set id, file(R1), file(R2) from fastqc_reads
 
-  output :
+  output:
     file "*_fastqc.{zip,html}" into fastqc_results
     file 'fastqc_process_*.log' into fastqc_process_log
 
-  when :
+  when:
     params.quality_check_enable
 
-  shell :
+  shell:
   """
   fastqc ${R1} ${R2} -t ${task.cpus} >& fastqc_process_!{id}.log 2>&1
   """
@@ -137,17 +137,17 @@ process multiqc {
 
   publishDir "${params.outdir}/${params.quality_merge_dirname}" , mode: 'copy', pattern : 'multiqc_report.html'
 
-  input :
+  input:
     file ('fastqc/*') from fastqc_results.collect().ifEmpty([])
 
-  output :
+  output:
     file "multiqc_report.html" into multiqc_report
     file "multiqc_data"
 
-  when :
+  when:
     params.quality_check_enable
 
-  shell :
+  shell:
   """
   multiqc . >& multiqc_process.log 2>&1
   """
@@ -165,15 +165,15 @@ process unicycler {
   publishDir "${params.outdir}/${params.assembly_dirname}", mode: 'copy', pattern : "${assembly_name}/*.gfa" , saveAs : { unicycler_gfa -> "${assembly_name}/assembly.gfa" }
   publishDir "${params.outdir}/${params.assembly_dirname}", mode: 'copy', pattern : "${assembly_name}/*.fasta" , saveAs : { unicycler_fasta -> "${assembly_name}/assembly.fasta" }
 
-  input :
+  input:
     set assembly_name, file(read1) , file(read2) from unicycler_reads
 
-  output :
+  output:
     set assembly_name, file("${assembly_name}/*.fasta") into unicycler_fasta
     set assembly_name, file("${assembly_name}/*.gfa") into unicycler_gfa
     file "${assembly_name}/*.log" into unicycler_log
 
-  shell :
+  shell:
   """
   unicycler -1 ${read1} -2 ${read2} -o ${assembly_name} --min_fasta_length ${params.min_ctg_length} -t ${task.cpus} --keep 0 --mode ${params.assembly_mode} >& assembly_process_!{assembly_name}.log 2>&1
   """
@@ -205,13 +205,13 @@ process bandage {
 
   publishDir "${params.outdir}/${params.assembly_dirname}" , mode: 'copy', saveAs : { bandage_plot -> "${assembly_name}/${assembly_name}.svg" }
 
-  input :
+  input:
     set assembly_name, file(gfa) from unicycler_gfa
 
-  output :
+  output:
     file("*.svg")
 
-  shell :
+  shell:
   """
   Bandage image ${gfa} ${assembly_name}.svg >& bandage.log 2>&1
   """
@@ -226,13 +226,13 @@ process blast {
 
   publishDir "${params.outdir}/${params.contamination_check_dirname}" , mode: 'copy', pattern : '*.m6'
 
-  input :
+  input:
     set assembly_name, file(fasta) from unicycler_fasta
 
-  output :
+  output:
     set assembly_name, file("*.m6"), file(fasta) into univec_blast_fasta
 
-  shell :
+  shell:
   """
   blastn -reward 1 -penalty -5 -gapopen 3 -gapextend 3 -dust yes -soft_masking true -evalue 700 -searchsp 1750000000000 -db ${params.univec_db} -query ${fasta} -out ${assembly_name}.m6 -outfmt ${params.outfmt} >& blast_univec_process_!{assembly_name}.log 2>&1
   """
@@ -243,13 +243,13 @@ process remoVecSec {
 
   publishDir "${params.outdir}/${params.contamination_rm_dirname}" , mode: 'copy', pattern : '*.clean.fasta'
 
-  input :
+  input:
     set assembly_name, file(blast), file(fasta) from univec_blast_fasta
 
-  output :
+  output:
     set assembly_name, file("*.clean.fasta") into vecscreen_fasta
 
-  shell
+  shell:
   """
   vecscreen.py -i ${blast} -f ${fasta} -o ${assembly_name}.clean.fasta >& vecscreen.log 2>&1
   """
@@ -277,18 +277,18 @@ process bowtie2 {
   publishDir "${params.outdir}/${params.assembly_mapping_dirname}", mode: 'copy', pattern : '*.bai'
   publishDir "${params.outdir}/${params.assembly_mapping_dirname}", mode: 'copy', pattern : '*.bowtie2-mapping.log'
 
-  input :
+  input:
     set assembly_name, file(fasta) from fasta_bowtie2
     set reads_id, file(read1) , file(read2) from bowtie2_reads
 
-  output :
+  output:
     set assembly_name, file("*.bam"), file("*.bai") into bowtie2_bam
     file "*.bowtie2-mapping.log" into bowtie2_logs
 
-  when :
+  when:
     params.quality_check_post_enable
 
-  shell :
+  shell:
   """
   bowtie2-build ${fasta} ${assembly_name} -p 4 > ${assembly_name}.bowtie2-build.log 2>&1
 
@@ -307,19 +307,19 @@ process mosDepth {
   publishDir "${params.outdir}/${params.assembly_coverage_dirname}", mode: 'copy', pattern : '*.mosdepth.summary.txt'
   publishDir "${params.outdir}/${params.assembly_coverage_dirname}", mode: 'copy', pattern : '*.per-base.bed.gz'
 
-  input :
+  input:
     set assembly_name, file(bam), file(bai) from bowtie2_bam
 
-  output :
+  output:
 
     file "*.mosdepth.global.dist.txt" into mosdepth_global
     file "*.mosdepth.summary.txt" into mosdepth_summary
     file "*.per-base.bed.gz" into mosdepth_bed
 
-  when :
+  when:
     params.quality_check_post_enable
 
-  shell :
+  shell:
   """
   mosdepth ${assembly_name} ${bam} >& mosdepth.log 2>&1
   """
@@ -333,18 +333,18 @@ process busco {
   publishDir "${params.outdir}/${params.assembly_completness_dirname}", mode: 'copy', pattern : "${assembly_name}/run_*/full_table.tsv"
   publishDir "${params.outdir}/${params.assembly_completness_dirname}", mode: 'copy', pattern : "${assembly_name}/run_*/missing_busco_list.tsv"
 
-  input :
+  input:
     set assembly_name, file(fasta) from fasta_busco
 
-  output :
+  output:
     file "${assembly_name}/short_summary*" into busco_short_summary
     file "${assembly_name}/run_*/full_table.tsv" into busco_full_summary
     file "${assembly_name}/run_*/missing_busco_list.tsv" into busco_missing_list
 
-  when :
+  when:
     params.quality_check_post_enable
 
-  shell :
+  shell:
   """
   busco -c ${task.cpus} --force --offline -m genome -i ${fasta} -o ${assembly_name} -l ${params.odb_path}/${params.odb_name} >& busco.log 2>&1
   """
@@ -359,16 +359,16 @@ process fastANI {
 
   publishDir "${params.outdir}/${params.wgs_similarity_ANI_dirname}", mode: 'copy', pattern : "*.ani"
 
-  input :
+  input:
     set assembly_name, file(fasta) from fasta_ani
 
-  output :
+  output:
     file "*.ani" into fastANI_summary
 
-  when :
+  when:
     params.ani_enable
 
-  shell :
+  shell:
   """
   fastANI -q ${fasta} --rl ${params.ani_db} -o ${assembly_name}.ani >& fastANI.log 2>&1
   """
@@ -379,24 +379,25 @@ process fastANI {
 */
 
 process platon {
+  lable 'platon'
   beforeScript "${params.platon_env}"
 
   publishDir "${params.outdir}/${params.plasmid_detection_dirname}", mode: 'copy', pattern : "*.fasta"
   publishDir "${params.outdir}/${params.plasmid_detection_dirname}", mode: 'copy', pattern : "*.tsv"
   publishDir "${params.outdir}/${params.plasmid_detection_dirname}", mode: 'copy', pattern : "*.json"
 
-  input :
+  input:
     set assembly_name, file(fasta) from fasta_platon
 
-  output :
+  output:
     file "*.fasta" //into fastANI_summary
     file "*.tsv" //into fastANI_summary
     file "*.json" //into fastANI_summary
 
-  when :
+  when:
     params.plasmid_enable
 
-  shell :
+  shell:
   """
   platon --db ${params.platon_db} --mode ${params.platon_mode} --threads ${task.cpus} ${fasta} >& platon.log 2>&1
   """
@@ -412,16 +413,16 @@ process prokka {
 
   publishDir "${params.outdir}/${params.gene_prediction_dirname}", mode: 'copy'
 
-  input :
+  input:
     set assembly_name, file(fasta) from fasta_prokka
 
-  output :
+  output:
     file "prokka/*" into prokka_annotation
 
-  when :
+  when:
     params.annotation_enable
 
-  shell :
+  shell:
   """
   prokka --outdir prokka --prefix ${assembly_name} --centre ${params.center} --compliant --addgenes --gffver 3 --kingdom ${params.kingdom} --gcode ${params.gcode} --mincontiglen ${params.min_ctg_length} --cpus ${task.cpus} ${fasta} >& prokka.log 2>&1
   """
