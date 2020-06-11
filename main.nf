@@ -213,7 +213,7 @@ process bandage {
 
   shell :
   """
-  Bandage image ${gfa} ${assembly_name}.svg
+  Bandage image ${gfa} ${assembly_name}.svg >& bandage.log 2>&1
   """
 }
 
@@ -251,7 +251,7 @@ process remoVecSec {
 
   shell
   """
-  vecscreen.py -i ${blast} -f ${fasta} -o ${assembly_name}.clean.fasta
+  vecscreen.py -i ${blast} -f ${fasta} -o ${assembly_name}.clean.fasta >& vecscreen.log 2>&1
   """
 
 }
