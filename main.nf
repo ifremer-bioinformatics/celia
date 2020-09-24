@@ -292,9 +292,8 @@ process bowtie2 {
   """
   bowtie2-build ${fasta} ${assembly_name} -p 4 > ${assembly_name}.bowtie2-build.log 2>&1
 
-  bowtie2 --phred33 --non-deterministic -t -p ${task.cpus} --fr -1 ${read1} -2 ${read2} --sensitive -x ${assembly_name} 2> ${assembly_name}.bowtie2-mapping.log | \
-  samtools sort -@ 1 -m 4G -O bam -l 0 -T tmp - 2> ${assembly_name}.samtools-sort.log | \
-  samtools view -b -o ${assembly_name}.bam - 2> ${assembly_name}.samtools-view.log
+  bowtie2 -t -p ${task.cpus} --no-unal -1 ${read1} -2 ${read2} --sensitive -x ${assembly_name} 2> ${assembly_name}.bowtie2-mapping.log | \
+  samtools sort -@ 1 -m 4G -o ${assembly_name}.bam -O bam -T tmp - 2> ${assembly_name}.samtools-sort.log 
 
   samtools index ${assembly_name}.bam >& ${assembly_name}.samtools-index.log 2>&1
   """
