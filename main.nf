@@ -278,11 +278,10 @@ process bowtie2 {
   publishDir "${params.outdir}/${params.assembly_mapping_dirname}", mode: 'copy', pattern : '*.bowtie2-mapping.log'
 
   input:
-    set assembly_name, file(fasta) from fasta_bowtie2
-    set reads_id, file(read1) , file(read2) from bowtie2_reads
+    set id, file(fasta), file(read1), file(read2) from fasta_bowtie2.join(bowtie2_reads)
 
   output:
-    set assembly_name, file("*.bam"), file("*.bai") into bowtie2_bam
+    set id, file("*.bam"), file("*.bai") into bowtie2_bam
     file "*.bowtie2-mapping.log" into bowtie2_logs
 
   when:
@@ -290,12 +289,12 @@ process bowtie2 {
 
   shell:
   """
-  bowtie2-build ${fasta} ${assembly_name} -p 4 > ${assembly_name}.bowtie2-build.log 2>&1
+  bowtie2-build ${fasta} ${id} -p 4 > ${id}.bowtie2-build.log 2>&1
 
-  bowtie2 -t -p ${task.cpus} --no-unal -1 ${read1} -2 ${read2} --sensitive -x ${assembly_name} 2> ${assembly_name}.bowtie2-mapping.log | \
-  samtools sort -@ 1 -m 4G -o ${assembly_name}.bam -O bam -T tmp - 2> ${assembly_name}.samtools-sort.log 
+  bowtie2 -t -p ${task.cpus} --no-unal -1 ${read1} -2 ${read2} --sensitive -x ${id} 2> ${id}.bowtie2-mapping.log | \
+  samtools sort -@ 1 -m 4G -o ${id}.bam -O bam -T tmp - 2> ${id}.samtools-sort.log 
 
-  samtools index ${assembly_name}.bam >& ${assembly_name}.samtools-index.log 2>&1
+  samtools index ${id}.bam >& ${id}.samtools-index.log 2>&1
   """
 }
 
