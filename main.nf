@@ -20,7 +20,7 @@ def helpMessage() {
     nextflow run main.nf
 
     Mandatory arguments:
-    --rawdata_dir [path]                    Path to input directory with raaw data files
+    --rawdata_dir [path]                    Path to input directory with raw data files
 
     Other options:
     --outdir [path]                         The output directory where the results will be saved
@@ -111,7 +111,6 @@ log.info "-\033[2m--------------------------------------------------\033[0m-"
 
 process fastqc {
   label 'fastqc'
-  beforeScript "${params.fastqc_env}"
 
   publishDir "${params.outdir}/${params.quality_check_dirname}" , mode: 'copy', pattern : '*_fastqc.{zip,html}'
   publishDir "${params.outdir}/${params.quality_check_dirname}" , mode: 'copy', pattern : 'fastqc_process_*.log'
@@ -133,7 +132,7 @@ process fastqc {
 }
 
 process multiqc {
-  beforeScript "${params.multiqc_env}"
+  label 'multiqc'
 
   publishDir "${params.outdir}/${params.quality_merge_dirname}" , mode: 'copy', pattern : 'multiqc_report.html'
 
@@ -158,8 +157,7 @@ process multiqc {
 */
 
 process unicycler {
-  label 'assembly'
-  beforeScript "${params.unicycler_env}"
+  label 'unicycler'
 
   publishDir "${params.outdir}/${params.assembly_dirname}", mode: 'copy', pattern : "${assembly_name}/*.log" , saveAs : { unicycler_log -> "${assembly_name}/unicycler.log" }
   publishDir "${params.outdir}/${params.assembly_dirname}", mode: 'copy', pattern : "${assembly_name}/*.gfa" , saveAs : { unicycler_gfa -> "${assembly_name}/assembly.gfa" }
@@ -179,29 +177,8 @@ process unicycler {
   """
 }
 
-// process shovill {
-//   beforeScript "${params.shovill_env}"
-//
-//   publishDir "${params.outdir}/${params.assembly_dirname}", mode: 'copy', pattern : "${assembly_name}/*.log" , saveAs : { shovill_log -> "${assembly_name}/shovill.log" }
-//   publishDir "${params.outdir}/${params.assembly_dirname}", mode: 'copy', pattern : "${assembly_name}/*.gfa" , saveAs : { shovill_gfa -> "${assembly_name}/contigs.gfa" }
-//   publishDir "${params.outdir}/${params.assembly_dirname}", mode: 'copy', pattern : "${assembly_name}/*.fa" , saveAs : { shovill_fasta -> "${assembly_name}/contigs.fasta" }
-//
-//   input :
-//     set assembly_name, file(read1) , file(read2) from unicycler_reads
-//
-//   output :
-//     set assembly_name, file("${assembly_name}/*.fa") into shovill_fasta
-//     file "${assembly_name}/*.gfa" into shovill_gfa
-//     file "${assembly_name}/*.log" into shovill_log
-//
-//   shell :
-//   """
-//   shovill --R1 ${read1} --R2 ${read2} --depth 0 --outdir ${assembly_name}/ --minlen ${params.shovill.min_fasta_length} --tmpdir ${TMPDIR} --keepfiles --cpus ${task.cpus} --ram ${task.memory.toGiga()} >& assembly_process_!{assembly_name}.log 2>&1
-//   """
-// }
-
 process bandage {
-  beforeScript "${params.bandage_env}"
+  label 'bandage'
 
   publishDir "${params.outdir}/${params.assembly_dirname}" , mode: 'copy', saveAs : { bandage_plot -> "${assembly_name}/${assembly_name}.svg" }
 
@@ -222,7 +199,7 @@ process bandage {
 */
 
 process blast {
-  beforeScript "${params.blast_env}"
+  label 'blast'
 
   publishDir "${params.outdir}/${params.contamination_check_dirname}" , mode: 'copy', pattern : '*.m6'
 
@@ -239,7 +216,7 @@ process blast {
 }
 
 process remoVecSec {
-  beforeScript "${params.biopython_env}"
+  label 'biopython'
 
   publishDir "${params.outdir}/${params.contamination_rm_dirname}" , mode: 'copy', pattern : '*.clean.fasta'
 
@@ -271,7 +248,6 @@ vecscreen_fasta.into {
 
 process bowtie2 {
   label 'bowtie2'
-  beforeScript "${params.bowtie2_env}"
 
   publishDir "${params.outdir}/${params.assembly_mapping_dirname}", mode: 'copy', pattern : '*.bam'
   publishDir "${params.outdir}/${params.assembly_mapping_dirname}", mode: 'copy', pattern : '*.bai'
@@ -299,7 +275,7 @@ process bowtie2 {
 }
 
 process mosDepth {
-  beforeScript "${params.mosdepth_env}"
+  label 'mosdepth'
 
   publishDir "${params.outdir}/${params.assembly_coverage_dirname}", mode: 'copy', pattern : '*.mosdepth.global.dist.txt'
   publishDir "${params.outdir}/${params.assembly_coverage_dirname}", mode: 'copy', pattern : '*.mosdepth.summary.txt'
@@ -325,7 +301,6 @@ process mosDepth {
 
 process busco {
   label 'busco'
-  beforeScript "${params.busco_env}"
 
   publishDir "${params.outdir}/${params.assembly_completness_dirname}", mode: 'copy', pattern : "${assembly_name}/short_summary*"
   publishDir "${params.outdir}/${params.assembly_completness_dirname}", mode: 'copy', pattern : "${assembly_name}/run_*/full_table.tsv"
@@ -353,7 +328,7 @@ process busco {
 */
 
 process fastANI {
-  beforeScript "${params.fastani_env}"
+  label 'fastani'
 
   publishDir "${params.outdir}/${params.wgs_similarity_ANI_dirname}", mode: 'copy', pattern : "*.ani"
 
@@ -378,7 +353,6 @@ process fastANI {
 
 process platon {
   label 'platon'
-  beforeScript "${params.platon_env}"
 
   publishDir "${params.outdir}/${params.plasmid_detection_dirname}", mode: 'copy', pattern : "*.fasta"
   publishDir "${params.outdir}/${params.plasmid_detection_dirname}", mode: 'copy', pattern : "*.tsv"
@@ -407,7 +381,6 @@ process platon {
 
 process prokka {
   label 'prokka'
-  beforeScript "${params.prokka_env}"
 
   publishDir "${params.outdir}/${params.gene_prediction_dirname}", mode: 'copy'
 

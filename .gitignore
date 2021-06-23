@@ -5,3 +5,4 @@ tmp_CELIA/
 training_dataset/
 lib/*.fasta
 lib/*.m6
+.idea/
