@@ -58,6 +58,11 @@ def helpMessage() {
     --kingdom                               Annotation mode: Archaea|Bacteria|Mitochondria|Viruses (default 'Bacteria')
     --gcode                                 Genetic code / Translation table (set if --kingdom is set) (default '11')
 
+    Antibiotics and secondary metabolite:
+    --antibiotics_enable [bool]             Make antibiotics and secondary metabolite prediction (default: false)
+    --taxon                                 Taxon used for prediction: bacteria|fungi (default: bacteria)
+    --genefinding                           Gene predictor tool: glimmerhmm|prodigal|prodigal-m (default: prodigal)
+
   """.stripIndent()
 }
 
@@ -240,6 +245,7 @@ vecscreen_fasta.into {
   fasta_ani
   fasta_prokka
   fasta_platon
+  fasta_antismash
 }
 
 /*
@@ -399,6 +405,30 @@ process prokka {
   """
 }
 
+/*
+* STEP 7 - Antibiotics and secondary metabolite
+*/
+
+process antismash {
+  label 'antismash'
+
+  publishDir "${params.outdir}/${params.antibiotics_and_secondary_metabolite_dirname}", mode: 'copy'
+
+  input:
+    set assembly_name, file(fasta) from fasta_antismash
+
+  output:
+    file "${assembly_name}/*" into antismash_annotation
+
+  when:
+    params.antibiotics_enable
+
+  shell:
+  """
+  antismash --taxon ${params.taxon} --cb-knownclusters --output-dir ${assembly_name}/ --genefinding-tool ${params.genefinding} --cpus ${task.cpus} ${fasta} >& antismash.log 2>&1
+  """
+}
+
 /* Other functions */
 def SeBiMERHeader() {
     // Log colors ANSI codes
@@ -407,11 +437,12 @@ def SeBiMERHeader() {
     c_reset = params.monochrome_logs ? '' : "\033[0m";
     c_yellow = params.monochrome_logs ? '' : "\033[0;33m";
 
-    return """    -${c_cyan}--------------------------------------------------${c_reset}-
+    return """
+    -${c_cyan}--------------------------------------------------${c_reset}-
     ${c_blue}    __  __  __  .       __  __  ${c_reset}
     ${c_blue}   \\   |_  |__) | |\\/| |_  |__)  ${c_reset}
     ${c_blue}  __\\  |__ |__) | |  | |__ |  \\  ${c_reset}
-                                            ${c_reset}
+    ${c_reset}
     ${c_yellow}  CELIA: automatiC gEnome assembLy marIne prokAryotes${c_reset}
     -${c_cyan}--------------------------------------------------${c_reset}-
     """.stripIndent()

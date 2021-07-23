@@ -19,27 +19,29 @@ Original authors : Jason Stajich and Jon Palmer
 Licence: MIT
 """
 
+
 def getArgs():
     parser = argparse.ArgumentParser(description="")
-    parser.add_argument('-i',dest="blastn",type=argparse.FileType('r'),required=True,help='Blast result against UniVecDB')
-    parser.add_argument('-f',dest="fasta",type=str,required=True,help='Fasta to clean')
-    parser.add_argument('-m',dest="minSize",type=int,default=500,help='Minimal contig size')
-    parser.add_argument('-o',dest="output",type=str,required=True,help='Output name')
+    parser.add_argument('-i', dest="blastn", type=argparse.FileType('r'), required=True,
+                        help='Blast result against UniVecDB')
+    parser.add_argument('-f', dest="fasta", type=str, required=True, help='Fasta to clean')
+    parser.add_argument('-m', dest="minSize", type=int, default=500, help='Minimal contig size')
+    parser.add_argument('-o', dest="output", type=str, required=True, help='Output name')
 
     arg = parser.parse_args()
 
     return arg
 
-def main(args):
 
+def main(args):
     ### Step - 1 - Blastn parsing results and attribution of hits
     VecHits, Excludes = parse_blastn(args.blastn)
 
     ### Step - 2 - Clean the fasta file and create a new record
     clean_fasta(VecHits, Excludes, args.fasta, args.output, args.minSize)
 
-def parse_blastn(blastn):
 
+def parse_blastn(blastn):
     '''
     Blast header rows:
     qaccver saccver pident length mismatch gapopen qstart qend sstart send evalue score qlen
@@ -51,19 +53,19 @@ def parse_blastn(blastn):
     terminalDist = 200
 
     for row in blastn:
-        qaccver,saccver,pid,length,mismatch,gapopen,qstart,qend,sstart,send,evalue,bitscore,score,qlen = row.split()
+        qaccver, saccver, pid, length, mismatch, gapopen, qstart, qend, sstart, send, evalue, bitscore, score, qlen = row.split()
         scoverage = int(length) * 100 / int(qlen)
-        #vecscreen https://www.ncbi.nlm.nih.gov/tools/vecscreen/about/#Moderate
-        #says to use score here (I'm interpret as score not bitscore)
-        #need to determine if match is terminal or if internal
+        # vecscreen https://www.ncbi.nlm.nih.gov/tools/vecscreen/about/#Moderate
+        # says to use score here (I'm interpret as score not bitscore)
+        # need to determine if match is terminal or if internal
         loc = [int(qstart), int(qend)]
         if loc[0] > loc[1]:
-            loc = [loc[1],loc[0]]
-        #check for location
+            loc = [loc[1], loc[0]]
+        # check for location
         terminal = False
         position = None
-        #considere hit as terminal if it's starts in the last 50bp
-        #otherwise, considere it as internal
+        # considere hit as terminal if it's starts in the last 50bp
+        # otherwise, considere it as internal
         if loc[0] <= terminalDist:
             terminal = True
             position = '5'
@@ -73,7 +75,7 @@ def parse_blastn(blastn):
 
         # Take account of the blast score
         # Default = weak
-        Match = 0 # weak=0, moderate=1, strong=2
+        Match = 0  # weak=0, moderate=1, strong=2
         score = int(score)
         if terminal:
             if score >= 19:
@@ -104,10 +106,10 @@ def parse_blastn(blastn):
     for qaccver in Excludes:
         VecHits.pop(qaccver, None)
 
-    return(VecHits, Excludes)
+    return (VecHits, Excludes)
+
 
 def clean_fasta(VecHits, Excludes, fasta, output, minSize):
-
     trimTerminal = 0
     splitContig = 0
     f = open(output, "w")
@@ -119,35 +121,35 @@ def clean_fasta(VecHits, Excludes, fasta, output, minSize):
         sInt = []
         Seq = str(record.seq)
         if not record.id in VecHits and record.id not in Excludes:
-            f.write('>'+record.description+'\n')
+            f.write('>' + record.description + '\n')
             while len(Seq) > 0:
-                f.write(Seq[:70]+'\n')
+                f.write(Seq[:70] + '\n')
                 Seq = Seq[70:]
         elif record.id in Excludes:
             pass
         else:
-            #VecHits contains list of tuples of information, if terminal, then just truncate
-            #off the closest side. Also, need to check if multiple intervals are within 50
-            #bp of each other, that whole interval is removed.
-            #should be able to accomplish above with the several rounds that it runs with,
-            #so split on internal and trim terminal. done.
+            # VecHits contains list of tuples of information, if terminal, then just truncate
+            # off the closest side. Also, need to check if multiple intervals are within 50
+            # bp of each other, that whole interval is removed.
+            # should be able to accomplish above with the several rounds that it runs with,
+            # so split on internal and trim terminal. done.
             for hit in VecHits[record.id]:
-                ID,length,loc,score,terminal,pos = hit
+                ID, length, loc, score, terminal, pos = hit
                 if terminal and pos == '5':
                     if loc[1] > FiveEnd:
                         FiveEnd = loc[1]
                 elif terminal and pos == '3':
                     if loc[0] < ThreeEnd:
                         ThreeEnd = loc[0]
-                else: #internal hits to add to list
+                else:  # internal hits to add to list
                     if not loc in internals:
                         internals.append(loc)
 
-            #now sort intervals
+            # now sort intervals
             sInt = sorted(internals, key=lambda x: int(x[0]))
-            #now construct slicing list
+            # now construct slicing list
             if len(sInt) < 1:
-                slicer = [FiveEnd,ThreeEnd]
+                slicer = [FiveEnd, ThreeEnd]
             else:
                 slicer = [FiveEnd]
                 for x in sInt:
@@ -159,28 +161,30 @@ def clean_fasta(VecHits, Excludes, fasta, output, minSize):
                 print('Terminal trimming {:} to {:}'.format(record.id, paired_slicer))
                 newSeq = Seq[paired_slicer[0][0]:paired_slicer[0][1]]
                 if len(newSeq) >= minSize:
-                    f.write('>'+record.description+'\n')
+                    f.write('>' + record.description + '\n')
                     while len(newSeq) > 0:
-                        f.write(newSeq[:70]+'\n')
+                        f.write(newSeq[:70] + '\n')
                         newSeq = newSeq[70:]
 
             else:
                 print('Spliting contig {:} into {:}'.format(record.id, paired_slicer))
-                for num,y in enumerate(paired_slicer):
+                for num, y in enumerate(paired_slicer):
                     newSeq = Seq[y[0]:y[1]]
                     if len(newSeq) >= minSize:
-                        f.write('>'+record.id+'.'+str(num+1)+'\n')
+                        f.write('>' + record.id + '.' + str(num + 1) + '\n')
                         while len(newSeq) > 0:
-                            f.write(newSeq[:70]+'\n')
+                            f.write(newSeq[:70] + '\n')
                             newSeq = newSeq[70:]
 
     f.close()
 
+
 def group(lst, n):
     for i in range(0, len(lst), n):
-        val = lst[i:i+n]
+        val = lst[i:i + n]
         if len(val) == n:
             yield tuple(val)
+
 
 if __name__ == '__main__':
     args = getArgs()
