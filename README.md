@@ -15,6 +15,7 @@ For now, the workflow allows:
 - to evaluate the assembly quality using BUSCO and the mapping coverage (Bowtie2 + MoseDepth)
 - to compute ANI scores using dedicated database (FastANI)
 - to make a structural annotation (Prokka)
+- to search for antibiotics and secondary metabolite (AntiSMASH)
 
 ## Dependencies
 
@@ -77,7 +78,7 @@ nextflow run main.nf -resume -profile custom,docker -c /appli/bioinfo/hpc/nextfl
 
 ## Workflow process
 
-<img width="100%" src="docs/images/celia-v1.0.0.png">
+<img width="100%" src="docs/images/celia-v1.0.1.png">
 
 ## License and Credits
 CELIA is released under the GNU Affero General Public License, Version 3.0. AGPL
