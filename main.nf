@@ -246,6 +246,7 @@ vecscreen_fasta.into {
   fasta_prokka
   fasta_platon
   fasta_antismash
+  fasta_metrics
 }
 
 /*
@@ -264,7 +265,7 @@ process bowtie2 {
 
   output:
     set id, file("*.bam"), file("*.bai") into bowtie2_bam
-    file "*.bowtie2-mapping.log" into bowtie2_logs
+    set id, file ("*.bowtie2-mapping.log") into bowtie2_logs
 
   when:
     params.quality_check_post_enable
@@ -328,6 +329,29 @@ process busco {
   busco -c ${task.cpus} --force --offline -m genome -i ${fasta} -o ${assembly_name} -l ${params.odb_path}/${params.odb_name} >& busco.log 2>&1
   """
 }
+
+process metrics_qc_report {
+  label 'biopython'
+
+  publishDir "${params.outdir}/${params.metrics_qc_report}", mode: 'copy', pattern : '*.tsv'
+
+  input:
+    file '*.clean.fasta' from fasta_metrics.collect()
+//     file '*.bowtie2-mapping.log' from bowtie2_logs.collect()
+//     file 'short_summary*' from busco_short_summary.collect()
+
+  output:
+    file "*.csv" into metrics_qc_report
+
+  when:
+    params.quality_check_post_enable
+
+  shell:
+  """
+  metrics.py -d . >& assembly_metrics_report.csv 2> metrics_qc_report.log
+  """
+}
+
 
 /*
 * STEP 4 - ANI
