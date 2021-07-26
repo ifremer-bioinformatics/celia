@@ -333,12 +333,12 @@ process busco {
 process metrics_qc_report {
   label 'biopython'
 
-  publishDir "${params.outdir}/${params.metrics_qc_report}", mode: 'copy', pattern : '*.tsv'
+  publishDir "${params.outdir}/${params.metrics_qc_report}", mode: 'copy', pattern : '*.csv'
 
   input:
-    file '*.clean.fasta' from fasta_metrics.collect()
-//     file '*.bowtie2-mapping.log' from bowtie2_logs.collect()
-//     file 'short_summary*' from busco_short_summary.collect()
+    file "*" from fasta_metrics.collect()
+    file "*" from bowtie2_logs.collect()
+    file "*" from busco_short_summary.collect()
 
   output:
     file "*.csv" into metrics_qc_report
@@ -351,7 +351,6 @@ process metrics_qc_report {
   metrics.py -d . >& assembly_metrics_report.csv 2> metrics_qc_report.log
   """
 }
-
 
 /*
 * STEP 4 - ANI
