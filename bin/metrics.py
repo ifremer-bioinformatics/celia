@@ -195,7 +195,7 @@ def main(args):
     for f in listdir:
         if '.fasta' in f:
             fasta.append(f)
-        elif '.log' in f:
+        elif '.bowtie2-mapping.log' in f:
             bowtie2.append(f)
         elif 'short_summary' in f:
             busco.append(f)
