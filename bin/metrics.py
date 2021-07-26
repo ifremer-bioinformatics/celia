@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import re
 import argparse
 import os.path
 from Bio import SeqIO
@@ -7,8 +8,6 @@ from Bio import SeqIO
 
 def get_args():
     parser = argparse.ArgumentParser(description="")
-    # parser.add_argument('-f', dest="fasta", type=str, nargs='+', required=True, help='Input fasta')
-    # parser.add_argument('-b', dest="busco", type=str, nargs='+', required=False, help='BUSCO short summary')
     parser.add_argument('-d', dest="dir_path", type=str, required=True, help='A directory with all results')
 
     args = parser.parse_args()
@@ -63,8 +62,9 @@ def get_stats(fasta, stats):
          'N50': 0,
          'N80': 0,
          'N90': 0}
-    # Iterate over each sequence
+    # Get assembly name
     filename = os.path.basename(fasta).replace('.clean.fasta', '')
+    # Iterate over each sequence
     for seq in SeqIO.parse(f, "fasta"):
         s['seq'] += 1
         s['residue'] += len(seq.seq)
@@ -104,8 +104,9 @@ def get_busco_score(busco, stats):
          'busco_F_perc': 0,
          'busco_M_perc': 0}
     columns = ['Complete (C) and single-copy (S)', 'Complete (C) and duplicated (D)', 'Fragmented (F)', 'Missing (M)']
-    # Read each file and extract BUSCO scores
-    specie = ".".join(busco.split("/")[-1].split(".")[3:-1])
+    # Get library name
+    # specie = ".".join(busco.split("/")[-1].split(".")[3:-1])
+    specie = os.path.basename(busco).split('.')[3]
     # Extract raw count
     for line in b:
 
@@ -126,6 +127,41 @@ def get_busco_score(busco, stats):
     s['busco_D_perc'] = round(s['busco_D'] / float(s['busco_T']) * 100, 1)
     s['busco_F_perc'] = round(s['busco_F'] / float(s['busco_T']) * 100, 1)
     s['busco_M_perc'] = round(100 - s['busco_C_perc'] - s['busco_F_perc'], 1)
+    # Add results to main dict - assume specie already exist -> ok with nextflow pipeline
+    for k in s.keys():
+        stats[specie][k] = s[k]
+    # Return results
+    return stats
+
+
+def get_bowtie_score(bowtie, stats):
+    b = open(bowtie, "r")
+    # Data storage
+    s = {'reads': 0,
+         'mapped': 0,
+         'mapped_perc': 0,
+         'type': "PE"}
+    # Get library name
+    specie = os.path.basename(bowtie).split('.')[0]
+    # Extract mapping stats
+    for line in b:
+        # Total reads
+        total = re.search(r"(\d+) reads; of these:", line)
+        if total:
+            s['reads'] = int(total.group(1))
+        # Paired end reads
+        paired = re.search(r"(\d+) \([\d\.]+%\) were paired; of these:", line)
+        if paired:
+            s['mapped'] = int(paired.group(1))
+        # Single end reads
+        unpaired = re.search(r"(\d+) \([\d\.]+%\) were unpaired; of these:", line)
+        if unpaired:
+            s['mapped'] = int(unpaired.group(1))
+            s['type'] = 'SE'
+            # Overall alignment rate
+        overall = re.search(r"([\d\.]+)% overall alignment rate", line)
+        if overall:
+            s['mapped_perc'] = float(overall.group(1))
     # Add results to main dict - assume specie already exist -> ok with nextflow pipeline
     for k in s.keys():
         stats[specie][k] = s[k]
@@ -167,9 +203,12 @@ def main(args):
     for fa in fasta:
         stats = get_stats(fa, stats)
     # Step 3 - Collect BUSCO scores
-    for busco in busco:
-        stats = get_busco_score(busco, stats)
-    # Step 4 - Print results
+    for bu in busco:
+        stats = get_busco_score(bu, stats)
+    # Step 4 - Collect mapping info from Bowtie2 log
+    for bw in bowtie2:
+        stats = get_bowtie_score(bw, stats)
+    # Step 5 - Print results
     printing(stats)
 
 
